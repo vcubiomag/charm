@@ -1,0 +1,414 @@
+import copy
+import os
+import tempfile
+
+import numpy as np
+import pytest
+import scipy.ndimage
+from conftest import TESTDATA
+
+from charm.mesh import meshing
+from charm.mesh.element_tags import ElementTags
+from charm.mesh.io import read_msh
+from charm.mesh.msh import ElementData
+
+
+@pytest.fixture
+def labeled_image():
+    img = np.zeros((50, 50, 50), dtype=np.uint8)
+    img[10:40, 15:35, 20:30] = 1
+    img[20:30, 20:30, 20:30] = 2
+    return img
+
+
+@pytest.fixture
+def cube_image():
+    img = np.zeros((50, 50, 50), dtype=float)
+    img[10:40, 10:40, 10:40] = 1
+    return img
+
+
+@pytest.fixture
+def sphere3():
+    fn = str(TESTDATA / "sphere3.msh")
+    return read_msh(fn)
+
+
+@pytest.fixture
+def spikyblob():
+    fn = str(TESTDATA / "spikyblob.msh")
+    return read_msh(fn)
+
+
+def volumes(mesh):
+    vols = mesh.elements_volumes_and_areas()
+    vols = [np.sum(vols[mesh.elm.get_tetrahedra(t)]) for t in np.unique(mesh.elm.tag1)]
+    return vols
+
+
+def test_write_inr(labeled_image):
+    fn = os.path.join(tempfile.gettempdir(), tempfile.gettempprefix() + ".inr")
+    meshing._write_inr(labeled_image, [1, 1, 1], fn)
+    assert os.path.exists(fn)
+    os.remove(fn)
+
+
+def create_rings(radii, img_size):
+    img_size = 100
+    coords = np.meshgrid(
+        np.arange(img_size) - img_size / 2,
+        np.arange(img_size) - img_size / 2,
+        np.arange(img_size) - img_size / 2,
+        indexing="xy",
+    )
+    R = np.sqrt(coords[0] ** 2 + coords[1] ** 2 + coords[2] ** 2)
+    rings = np.zeros((img_size, img_size, img_size), dtype=np.uint8)
+    for i, r_inner, r_outer in zip(range(len(radii)), radii[:-1], radii[1:]):
+        rings[(R > r_inner) * (R < r_outer)] = i + 1
+    return rings
+
+
+class Test_decompose_affine:
+    def test_diagonal(self):
+        R, scaling, shearing = meshing._decompose_affine(np.eye(4))
+        assert np.allclose(R, np.eye(3))
+        assert np.allclose(scaling, 1)
+        assert np.allclose(shearing, np.eye(3))
+        R, scaling, shearing = meshing._decompose_affine(2 * np.eye(4))
+        assert np.allclose(R, np.eye(3))
+        assert np.allclose(scaling, 2)
+        assert np.allclose(shearing, np.eye(3))
+
+    def test_off_diagonal(self):
+        aff = np.array([[0, 1, 0, 0], [2, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        R, scaling, shearing = meshing._decompose_affine(aff)
+        assert np.allclose(
+            R,
+            np.array(
+                [
+                    [0, 1, 0],
+                    [1, 0, 0],
+                    [0, 0, 1],
+                ]
+            ),
+        )
+        assert np.allclose(scaling, [2, 1, 1])
+        assert np.allclose(shearing, np.eye(3))
+
+    def test_partial(self, labeled_image):
+        theta = np.pi / 3
+        R = np.array(
+            [
+                [np.cos(theta), -np.sin(theta), 0, 0],
+                [np.sin(theta), np.cos(theta), 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+            ]
+        )
+        scaling = np.diag([1, 2, 3, 1])
+        affine = R.dot(scaling)
+        rot, scaling, shearing = meshing._decompose_affine(affine)
+        assert np.allclose(R[:3, :3], rot)
+        assert np.allclose(scaling, [1, 2, 3])
+        assert np.allclose(shearing, np.eye(3))
+
+    def test_shearing(self, labeled_image):
+        theta = np.pi / 3
+        R = np.array(
+            [
+                [np.cos(theta), -np.sin(theta), 0],
+                [np.sin(theta), np.cos(theta), 0],
+                [0, 0, 1],
+            ]
+        )
+        Z = np.diag([1, 2, 3])
+        S = np.array(
+            [
+                [1, 1.2, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+            ]
+        )
+        affine = R.dot(Z.dot(S))
+        rot, scaling, shearing = meshing._decompose_affine(affine)
+        assert np.allclose(R, rot)
+        assert np.allclose(scaling, np.diagonal(Z))
+        assert np.allclose(shearing, S)
+
+
+class TestImage2mesh:
+    def test_diagonal(self, labeled_image):
+        affine = np.eye(4)
+        mesh = meshing.image2mesh(labeled_image, affine, facet_distance=0.5, facet_size=5, cell_size=5)
+        assert np.allclose(np.min(mesh.nodes[:], axis=0), [9.5, 14.5, 19.5], rtol=1e-2)
+        assert np.allclose(np.max(mesh.nodes[:], axis=0), [39.5, 34.5, 29.5], rtol=1e-2)
+        vol_1, vol_2 = volumes(mesh)
+        assert np.isclose(vol_2, 1e3, rtol=1e-1)
+        assert np.isclose(vol_1, (30 * 20 * 10) - 1e3, rtol=1e-1)
+
+    def test_diagonal_with_optimization(self, labeled_image):
+        affine = np.eye(4)
+        mesh = meshing.image2mesh(
+            labeled_image,
+            affine,
+            facet_distance=0.5,
+            facet_size=5,
+            cell_size=5,
+            do_perturb=True,
+            do_exude=True,
+            do_lloyd=True,
+        )
+        assert np.allclose(np.min(mesh.nodes[:], axis=0), [9.5, 14.5, 19.5], rtol=1e-2)
+        assert np.allclose(np.max(mesh.nodes[:], axis=0), [39.5, 34.5, 29.5], rtol=1e-2)
+        vol_1, vol_2 = volumes(mesh)
+        assert np.isclose(vol_2, 1e3, rtol=1e-1)
+        assert np.isclose(vol_1, (30 * 20 * 10) - 1e3, rtol=1e-1)
+
+    def test_scaling(self, labeled_image):
+        affine = 2 * np.eye(4)
+        mesh = meshing.image2mesh(labeled_image, affine, facet_distance=1, facet_size=5, cell_size=5)
+        assert np.allclose(np.min(mesh.nodes[:], axis=0), [2 * 9.5, 2 * 14.5, 2 * 19.5], rtol=1e-2)
+        assert np.allclose(np.max(mesh.nodes[:], axis=0), [2 * 39.5, 2 * 34.5, 2 * 29.5], rtol=1e-2)
+        vol_1, vol_2 = volumes(mesh)
+        assert np.isclose(vol_2, 8e3, rtol=1e-1)
+        assert np.isclose(vol_1, 8 * ((30 * 20 * 10) - 1e3), rtol=1e-1)
+
+    def test_translation(self, labeled_image):
+        affine = np.eye(4)
+        affine[:3, 3] = -25
+        mesh = meshing.image2mesh(labeled_image, affine, facet_distance=0.5, facet_size=5, cell_size=5)
+        assert np.allclose(np.min(mesh.nodes[:], axis=0), [9.5 - 25, 14.5 - 25, 19.5 - 25], rtol=1e-2)
+        assert np.allclose(np.max(mesh.nodes[:], axis=0), [39.5 - 25, 34.5 - 25, 29.5 - 25], rtol=1e-2)
+        vol_1, vol_2 = volumes(mesh)
+        assert np.isclose(vol_2, 1e3, rtol=1e-1)
+        assert np.isclose(vol_1, (30 * 20 * 10) - 1e3, rtol=1e-1)
+
+    def test_rotation_90(self, labeled_image):
+        affine = np.array([[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        mesh = meshing.image2mesh(labeled_image, affine, facet_distance=0.5, facet_size=5, cell_size=5)
+        assert np.allclose(np.min(mesh.nodes[:], axis=0), [14.5, 9.5, 19.5], rtol=1e-2)
+        assert np.allclose(np.max(mesh.nodes[:], axis=0), [34.5, 39.5, 29.5], rtol=1e-2)
+        vol_1, vol_2 = volumes(mesh)
+        assert np.isclose(vol_2, 1e3, rtol=1e-1)
+        assert np.isclose(vol_1, (30 * 20 * 10) - 1e3, rtol=1e-1)
+
+    def test_rotation(self, labeled_image):
+        theta = np.pi / 4
+        R = np.array(
+            [
+                [np.cos(theta), -np.sin(theta), 0, 0],
+                [np.sin(theta), np.cos(theta), 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+            ]
+        )
+        scaling = np.diag([1, 2, 3, 1])
+        affine = R.dot(scaling)
+        mesh = meshing.image2mesh(labeled_image, affine, facet_distance=0.5, facet_size=5, cell_size=5)
+        nodes_t = np.linalg.inv(affine[:3, :3]).dot(mesh.nodes[:].T).T
+        assert np.allclose(np.min(nodes_t, axis=0), [9.5, 14.5, 19.5], rtol=1e-2)
+        assert np.allclose(np.max(nodes_t, axis=0), [39.5, 34.5, 29.5], rtol=1e-2)
+        mesh.nodes.node_coord = nodes_t
+        vol_1, vol_2 = volumes(mesh)
+        assert np.isclose(vol_2, 1e3, rtol=1e-1)
+        assert np.isclose(vol_1, (30 * 20 * 10) - 1e3, rtol=1e-1)
+
+    @pytest.mark.parametrize("axis", [0, 1, 2])
+    def test_sizing_field(self, axis):
+        label_image = np.zeros((50, 50, 50), dtype=np.uint8)
+        label_image[10:40, 10:40, 10:40] = 1
+        affine = np.eye(4)
+        sizing_field = np.ones_like(label_image) * 10
+        if axis == 0:
+            sizing_field[25:, ...] = 3
+        elif axis == 1:
+            sizing_field[:, 25:, :] = 3
+        elif axis == 2:
+            sizing_field[..., 25:] = 3
+        mesh = meshing.image2mesh(
+            label_image,
+            affine,
+            facet_distance=0.5,
+            facet_size=10,
+            cell_size=sizing_field,
+        )
+        assert np.allclose(np.min(mesh.nodes[:], axis=0), 9.5, rtol=1e-2)
+        assert np.allclose(np.max(mesh.nodes[:], axis=0), 39.5, rtol=1e-2)
+        vols = mesh.elements_volumes_and_areas()[mesh.elm.tetrahedra]
+        bar = mesh.elements_baricenters()[mesh.elm.tetrahedra]
+        assert np.average(vols[bar[:, axis] < 25]) > np.average(vols[bar[:, axis] > 25])
+
+    def test_sizing_field_facet_size(self):
+        label_image = np.zeros((50, 50, 50), dtype=np.uint8)
+        label_image[10:40, 10:40, 10:40] = 1
+        affine = np.eye(4)
+        sizing_field = np.ones_like(label_image) * 10
+        sizing_field[25:, ...] = 1
+        mesh = meshing.image2mesh(
+            label_image,
+            affine,
+            facet_distance=0.5,
+            facet_size=sizing_field,
+            cell_size=10,
+        )
+        assert np.allclose(np.min(mesh.nodes[:], axis=0), 9.5, rtol=1e-2)
+        assert np.allclose(np.max(mesh.nodes[:], axis=0), 39.5, rtol=1e-2)
+        areas = mesh.elements_volumes_and_areas()[mesh.elm.triangles]
+        bar = mesh.elements_baricenters()[mesh.elm.triangles]
+        assert np.average(areas[bar[:, 0] < 25]) > np.average(areas[bar[:, 0] > 25])
+
+    def test_sizing_field_facet_distance(self):
+        label_image = np.zeros((50, 50, 50), dtype=np.uint8)
+        label_image[10:40, 10:40, 10:40] = 1
+        affine = np.eye(4)
+        sizing_field = np.ones_like(label_image, dtype=np.float32) * 0.5
+        sizing_field[25:, ...] = 0.3
+        mesh = meshing.image2mesh(
+            label_image,
+            affine,
+            facet_size=10,
+            cell_size=10,
+            facet_distance=sizing_field,
+        )
+        assert np.allclose(np.min(mesh.nodes[:], axis=0), 9.5, rtol=1e-2)
+        assert np.allclose(np.max(mesh.nodes[:], axis=0), 39.5, rtol=1e-2)
+        areas = mesh.elements_volumes_and_areas()[mesh.elm.triangles]
+        bar = mesh.elements_baricenters()[mesh.elm.triangles]
+        assert np.average(areas[bar[:, 0] < 25]) > np.average(areas[bar[:, 0] > 25])
+
+    @pytest.mark.parametrize("axis", [0, 1, 2])
+    def test_sizing_field_scaling(self, axis):
+        label_image = np.zeros((50, 50, 50), dtype=np.uint8)
+        label_image[10:40, 10:40, 10:40] = 1
+        affine = np.eye(4)
+        affine[axis, axis] = 2
+        sizing_field = np.ones_like(label_image) * 10
+        if axis == 0:
+            sizing_field[25:, ...] = 3
+        elif axis == 1:
+            sizing_field[:, 25:, :] = 3
+        elif axis == 2:
+            sizing_field[..., 25:] = 3
+        mesh = meshing.image2mesh(
+            label_image,
+            affine,
+            facet_size=10,
+            cell_size=sizing_field,
+            facet_distance=0.5,
+        )
+        vols = mesh.elements_volumes_and_areas()[mesh.elm.tetrahedra]
+        bar = mesh.elements_baricenters()[mesh.elm.tetrahedra]
+        assert np.average(vols[bar[:, axis] < 50]) > np.average(vols[bar[:, axis] > 50])
+
+
+class TestRelabelSpikes:
+    def update_tag_from_label_img(self, sphere3):
+        m = sphere3.crop_mesh(elm_type=4)
+        field = m.elm.tag1.astype(np.uint16)
+        ed = ElementData(field)
+        ed.mesh = m
+        affine = 2 * np.eye(4)
+        affine[:3, 3] = -100
+        affine[3, 3] = 1
+        img = ed.interpolate_to_grid([101, 101, 101], affine)
+        tag_org = m.elm.tag1.copy()
+        m.elm.tag1[9033] = 3
+        m.elm.tag2[9033] = 3
+        m.elm.tag1[8343] = 2
+        m.elm.tag2[8343] = 2
+        _faces, _tet_faces, adj_tets = m.elm._get_tet_faces_and_adjacent_tets()
+        m = meshing.update_tag_from_label_img(m, adj_tets, img, affine)
+        assert np.all(m.elm.tag1 == tag_org)
+        assert np.all(m.elm.tag2 == tag_org)
+
+    def test_despike_steps_two_three(self, sphere3):
+        sphere3_th = sphere3.crop_mesh(elm_type=4)
+        mesh = copy.deepcopy(sphere3_th)
+        mesh.elm.tag1[9033] = 3
+        mesh.elm.tag2[9033] = 3
+        mesh.elm.tag1[8343] = 2
+        mesh.elm.tag2[8343] = 2
+        faces, tet_faces, adj_tets = mesh.elm._get_tet_faces_and_adjacent_tets()
+        mesh = meshing.update_tag_from_tet_neighbors(mesh, faces, tet_faces, adj_tets, nr_iter=12)
+        mesh = meshing.update_tag_from_surface(mesh, faces, tet_faces, adj_tets)
+        assert np.all(mesh.elm.tag1 == sphere3_th.elm.tag1)
+        assert np.all(mesh.elm.tag2 == sphere3_th.elm.tag2)
+
+    def test_despikeblob(self, spikyblob):
+        despiked = np.load(TESTDATA / "spikyblob_despiked.npy")
+        assert np.any(spikyblob.elm.tag1 != despiked)
+
+        faces, tet_faces, adj_tets = spikyblob.elm._get_tet_faces_and_adjacent_tets()
+        spikyblob = meshing.update_tag_from_tet_neighbors(spikyblob, faces, tet_faces, adj_tets, nr_iter=12)
+        spikyblob2 = meshing.update_tag_from_surface(copy.deepcopy(spikyblob), faces, tet_faces, adj_tets)
+        assert np.all(spikyblob2.elm.tag1 == despiked)
+        assert np.all(spikyblob2.elm.tag2 == despiked)
+
+        spikyblob = meshing.update_tag_from_surface(spikyblob, faces, tet_faces, adj_tets, do_splits=True)
+        assert spikyblob.elm.nr - spikyblob2.elm.nr == 51
+        assert len(spikyblob.elm.tag1) == spikyblob.elm.nr
+        assert np.all(spikyblob.elm.tag1 == spikyblob.elm.tag2)
+
+
+class TestMeshing:
+    def test_sizing_field_from_thickness(self):
+        thickness = np.arange(100)
+        elem_sizes = {"standard": {"range": [50, 150], "slope": 2.0}}
+        sf = meshing._sizing_field_from_thickness(thickness, thickness, elem_sizes)
+        assert np.isclose(np.min(sf), 50)
+        assert np.isclose(np.max(sf), 150)
+        assert np.allclose(sf[25:75], np.arange(50, 150, 2))
+        assert sf.flags["F_CONTIGUOUS"]
+        assert sf.dtype == np.float32
+
+    def test_mesh(self):
+        rings = create_rings([10, 15, 20, 25], 60)
+        rings[rings == 2] = 4
+        m = meshing.create_mesh(rings, np.eye(4))
+        vols = m.elements_volumes_and_areas()
+        assert np.isclose(vols[m.elm.get_tags(1)].sum(), 4 / 3 * np.pi * (15**3 - 10**3), rtol=1e-1)
+        assert np.isclose(vols[m.elm.get_tags(4)].sum(), 4 / 3 * np.pi * (20**3 - 15**3), rtol=1e-1)
+        assert np.isclose(vols[m.elm.get_tags(3)].sum(), 4 / 3 * np.pi * (25**3 - 20**3), rtol=1e-1)
+
+
+def _reference_cream_layer(label_img, size_field, distance_field, cream_thickness):
+    # What the layer does voxel by voxel, for comparing with the frontier
+    footprint = scipy.ndimage.generate_binary_structure(3, 1)
+    for _ in range(cream_thickness):
+        mask = label_img > 0
+        mask_dil = scipy.ndimage.binary_dilation(mask) ^ mask
+        size = np.where(label_img == 0, -1, size_field)
+        distance = np.where(label_img == 0, -1, distance_field)
+        size_field[mask_dil] = scipy.ndimage.grey_dilation(size, footprint=footprint)[mask_dil]
+        distance_field[mask_dil] = scipy.ndimage.grey_dilation(distance, footprint=footprint)[mask_dil]
+        label_img[mask_dil] = ElementTags.CREAM
+
+
+@pytest.mark.parametrize("touches_border", [False, True])
+def test_cream_layer_matches_voxelwise_dilation(touches_border):
+    rng = np.random.default_rng(0)
+    shape = (30, 26, 28)
+    label_img = np.zeros(shape, dtype=np.uint16)
+    label_img[8:20, 8:18, 9:19] = 5
+    label_img[12:15, 11:14, 12:16] = 2
+    if touches_border:
+        label_img[0:3, 9:12, 10:13] = 3
+    size_field = rng.uniform(1, 5, shape).astype(np.float32)
+    distance_field = rng.uniform(0.1, 3, shape).astype(np.float32)
+
+    expected = label_img.copy(), size_field.copy(), distance_field.copy()
+    _reference_cream_layer(*expected, 6)
+    meshing.apply_cream_layer(label_img, size_field, distance_field, 6)
+
+    np.testing.assert_array_equal(label_img, expected[0])
+    np.testing.assert_array_equal(size_field, expected[1])
+    np.testing.assert_array_equal(distance_field, expected[2])
+
+
+def test_row_modes_match_counting():
+    rows = np.random.default_rng(0).integers(0, 5, size=(500, 9))
+    modes, counts = meshing._row_modes(rows)
+    for row, mode, count in zip(rows, modes, counts):
+        values, occurrences = np.unique(row, return_counts=True)
+        assert mode == values[np.argmax(occurrences)]
+        assert count == np.max(occurrences)
