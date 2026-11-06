@@ -3,7 +3,7 @@ name = "charm"
 version = "0.1.0"
 description = "Head model generation from MRI (CHARM, extracted from SimNIBS)"
 license = "GPL-3.0-only"
-license-files = ["LICENSE", "3RD-PARTY.md"]
+license-files = ["LICENSE"]
 authors = [
     { name = "Sriman Achanta", email = "68172138+srimanachanta@users.noreply.github.com" }
 ]
