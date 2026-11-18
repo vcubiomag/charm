@@ -29,6 +29,7 @@ cmake -S "$work/oneTBB-${tbb_version}" -B "$work/build" -G Ninja \
   -DCMAKE_INSTALL_PREFIX=/usr \
   -DTBB_TEST=OFF \
   -DTBB_EXAMPLES=OFF \
+  -DTBBMALLOC_PROXY_BUILD=OFF \
   -DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=ON
 cmake --build "$work/build" --target install
 rm -rf "$work"

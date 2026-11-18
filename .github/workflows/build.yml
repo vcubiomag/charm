@@ -36,7 +36,7 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         with:
           path: ${{ runner.os == 'Linux' && format('{0}/deps', runner.temp) || 'build/deps' }}
-          key: deps-${{ matrix.os }}-${{ hashFiles('cmake/ITK.cmake') }}
+          key: deps-${{ matrix.os }}-${{ hashFiles('cmake/CharmITK.cmake') }}
 
       # Builds and tests the wheels, see [tool.cibuildwheel] in pyproject.toml
       - uses: pypa/cibuildwheel@v4.3.5

@@ -39,11 +39,11 @@ charm = "charm.cli.charm:main"
 requires = [
     "scikit-build-core>=0.12.1,<0.13",
     "nanobind>=3.0,<4",
-    "numpy>=2.0.0",
 ]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
+minimum-version = "build-system.requires"
 wheel.packages = ["src/charm"]
 wheel.exclude = ["**.cpp", "**.cxx", "**.c", "**.h", "**/CMakeLists.txt"]
 build-dir = "build/{wheel_tag}"

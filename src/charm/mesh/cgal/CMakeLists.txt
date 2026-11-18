@@ -28,12 +28,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cgal eigen)
 
-if(POLICY CMP0167)
-  cmake_policy(SET CMP0167 NEW)
-endif()
 find_package(Boost 1.74 REQUIRED CONFIG)
 
-function(find_math_library name header lib)
+function(charm_find_library name header lib)
   find_path(${name}_INCLUDE_DIR NAMES ${header} REQUIRED)
   find_library(${name}_LIBRARY NAMES ${lib} REQUIRED)
   add_library(charm::${name} INTERFACE IMPORTED)
@@ -41,8 +38,8 @@ function(find_math_library name header lib)
   target_link_libraries(charm::${name} INTERFACE ${${name}_LIBRARY})
 endfunction()
 
-find_math_library(GMP gmp.h gmp)
-find_math_library(MPFR mpfr.h mpfr)
+charm_find_library(GMP gmp.h gmp)
+charm_find_library(MPFR mpfr.h mpfr)
 
 charm_add_module(_cgal module.cpp mesh_volumes.cpp segment_intersection.cpp)
 target_include_directories(_cgal SYSTEM PRIVATE "${cgal_SOURCE_DIR}/include" "${eigen_SOURCE_DIR}")

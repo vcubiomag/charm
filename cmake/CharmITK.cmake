@@ -28,7 +28,7 @@ set(CHARM_ITK_MODULES
 if(DEFINED ENV{CHARM_DEPS_DIR})
   set(charm_deps_default "$ENV{CHARM_DEPS_DIR}")
 else()
-  set(charm_deps_default "${CMAKE_SOURCE_DIR}/build/deps")
+  set(charm_deps_default "${PROJECT_SOURCE_DIR}/build/deps")
 endif()
 set(CHARM_DEPS_DIR "${charm_deps_default}" CACHE PATH "Where dependencies built from source are kept")
 option(CHARM_BUILD_ITK "Build ITK from source rather than use the one ITK_DIR points to" ON)
@@ -98,7 +98,7 @@ if(CHARM_BUILD_ITK)
       endif()
 
       execute_process(
-        COMMAND ${CMAKE_COMMAND} -S "${itk_source}" -B "${itk_root}/build" -G ${CMAKE_GENERATOR}
+        COMMAND ${CMAKE_COMMAND} -S "${itk_source}" -B "${itk_root}/build" -G "${CMAKE_GENERATOR}"
                 -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM} -DCMAKE_INSTALL_PREFIX=${itk_prefix} ${itk_args}
         COMMAND_ERROR_IS_FATAL ANY
       )

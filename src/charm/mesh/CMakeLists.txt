@@ -9,23 +9,24 @@ FetchContent_Declare(
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   EXCLUDE_FROM_ALL
 )
-set(BUILD "MMG3D" CACHE STRING "" FORCE)
-set(LIBMMG3D_STATIC ON CACHE BOOL "" FORCE)
-set(LIBMMG3D_SHARED OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-set(USE_ELAS OFF CACHE BOOL "" FORCE)
-set(USE_VTK OFF CACHE BOOL "" FORCE)
+# mmg declares cmake_minimum_required(3.5). Newer policies let the normal variables below override its options
+# (CMP0077, CMP0126) and apply the visibility presets to its static library (CMP0063).
+set(CMAKE_POLICY_VERSION_MINIMUM 3.28)
+set(BUILD MMG3D)
+set(BUILD_TESTING OFF)
+set(USE_ELAS OFF)
+set(USE_VTK OFF)
 # meshing._spatially_ordered does better than Scotch renumbering on head meshes.
-set(USE_SCOTCH OFF CACHE BOOL "" FORCE)
-# mmg still declares cmake_minimum_required(3.5).
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+set(USE_SCOTCH OFF)
+# Perl is only used to generate Fortran headers, through a helper executable that would otherwise be built
+set(CMAKE_DISABLE_FIND_PACKAGE_Perl ON)
 FetchContent_MakeAvailable(mmg)
 
-# mmg takes most of the time of a run, and spends it in small functions spread over many files.
-# mmg's old minimum CMake version makes it ignore INTERPROCEDURAL_OPTIMIZATION.
+# mmg takes most of the time of a run, and spends it in small functions spread over many files, which full LTO
+# inlines across. INTERPROCEDURAL_OPTIMIZATION would give Clang's ThinLTO instead.
 set(MMG_OPTIONS -flto -fno-math-errno -fno-trapping-math -ffp-contract=fast)
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-  # The static library may be archived without GCC's LTO plugin
+  # The static library is archived without GCC's LTO plugin
   list(APPEND MMG_OPTIONS -ffat-lto-objects)
 endif()
 target_compile_options(libmmg3d_a PRIVATE ${MMG_OPTIONS})
