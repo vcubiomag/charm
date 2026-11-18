@@ -63,32 +63,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "cat-surf"
-version = "1.1.8"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/00/7c80c5cc753eb7d49ae785fd48795bbd19cfc20623e17a390330db244e53/cat_surf-1.1.8-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:c3230744bf1cc207a0e04831b7a1476a94a39455d58b3eefd80c4fb5a19198e6", size = 5626766, upload-time = "2026-10-27T22:47:48.659Z" },
-    { url = "https://files.pythonhosted.org/packages/c5/56/2371391be38f0e6001236d70e790863c5a20ffe6a4e3b9baa0f214ff849f/cat_surf-1.1.8-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:dd24fc83e389e9a4dbd3297e66afe0371c5ae0d48d2e575716e14f031cedc4fe", size = 9604358, upload-time = "2026-10-27T22:47:52.799Z" },
-    { url = "https://files.pythonhosted.org/packages/28/a1/0f90cd7095b7a21d015c959bc5d2627592eeab4a1eaa288c2eef96c0ee5d/cat_surf-1.1.8-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:12d296120543130b6a535c6db414ebf86d1dd4ec91c36e9e7e6f5a14562125d1", size = 5623073, upload-time = "2026-10-27T22:47:54.994Z" },
-    { url = "https://files.pythonhosted.org/packages/9c/67/8ce473163011e2c88e122af8ae374dde20227962bcccb88b2f778c29c591/cat_surf-1.1.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:c79eecb4e5c83ff9764ae8ca34aaa9994cd8c84ad7fdba7ab57756fc8fe3eabb", size = 9654656, upload-time = "2026-10-27T22:47:58.68Z" },
-    { url = "https://files.pythonhosted.org/packages/48/17/20b3451d6da18c57ec6be34a82cc92cd4a979f96bec34ee9111732308d42/cat_surf-1.1.8-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:36e01cd381a142f656cf7a6925c53caaca1aca18ae87de943eba615c6ea5ee63", size = 5630221, upload-time = "2026-10-27T22:48:01.093Z" },
-    { url = "https://files.pythonhosted.org/packages/5c/d2/ca9d993db40580a07897cdf9a77b5da9d1daa74bfd5f9516bee08f294032/cat_surf-1.1.8-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:3a8e59f9ae1ed27a75765518340ba2f6e2f2d21839d4e3b276bce30bfc01a5c0", size = 9595143, upload-time = "2026-10-27T22:48:04.738Z" },
-    { url = "https://files.pythonhosted.org/packages/ea/93/acbaf66d0013e1d55a6cf1c44c71b5171a88a470dd788609b1bb8aa4561e/cat_surf-1.1.8-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:029c720019d50153d4cbe35149498615e7150ebe89ea2c4a15b19fb97f2338e1", size = 5636711, upload-time = "2026-10-27T22:48:06.761Z" },
-    { url = "https://files.pythonhosted.org/packages/de/8c/194163b9460a47784c00bb86cdd762ba0f0ed299d378337c5e094dae417f/cat_surf-1.1.8-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5a6c393d768e8fb3c42a66a9c34727074654901d0552560e0937866556399dab", size = 9661444, upload-time = "2026-10-27T22:48:11.083Z" },
-]
-
-[[package]]
 name = "charm"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "brainnet" },
     { name = "brainsynth" },
-    { name = "cat-surf" },
     { name = "cortech", version = "0.1", source = { url = "https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp311-cp311-macosx_14_0_arm64.whl" }, marker = "python_full_version < '3.12' and sys_platform != 'linux'" },
     { name = "cortech", version = "0.1", source = { url = "https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp311-cp311-manylinux_2_34_x86_64.whl" }, marker = "python_full_version < '3.12' and sys_platform == 'linux'" },
     { name = "cortech", version = "0.1", source = { url = "https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp312-cp312-macosx_14_0_arm64.whl" }, marker = "python_full_version == '3.12.*' and sys_platform != 'linux'" },
@@ -120,7 +100,6 @@ dev = [
 requires-dist = [
     { name = "brainnet", git = "https://github.com/simnibs/brainnet?rev=v0.2" },
     { name = "brainsynth", git = "https://github.com/simnibs/brainsynth?rev=v0.1" },
-    { name = "cat-surf", specifier = ">=1.1.8" },
     { name = "cortech", marker = "python_full_version == '3.11.*' and platform_machine == 'arm64' and sys_platform == 'darwin'", url = "https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp311-cp311-macosx_14_0_arm64.whl" },
     { name = "cortech", marker = "python_full_version == '3.12.*' and platform_machine == 'arm64' and sys_platform == 'darwin'", url = "https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp312-cp312-macosx_14_0_arm64.whl" },
     { name = "cortech", marker = "python_full_version == '3.13.*' and platform_machine == 'arm64' and sys_platform == 'darwin'", url = "https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp313-cp313-macosx_14_0_arm64.whl" },

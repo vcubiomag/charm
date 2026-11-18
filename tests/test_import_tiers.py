@@ -62,7 +62,7 @@ def test_charm_help_is_cheap(module):
 
 @pytest.mark.parametrize("module", ["charm.mesh.meshing", "charm.surface.brain_surface", "charm.pipeline.run"])
 def test_meshing_path_does_not_need_torch(module):
-    """Only surface estimation and TREGA initialization may load torch."""
+    """Only the surface step and TREGA initialization may load torch."""
     loaded = imported_modules(f"import {module}")
     offenders = sorted(loaded & {"torch", "brainnet", "brainsynth"})
     assert not offenders, f"import {module} pulled in {offenders}"

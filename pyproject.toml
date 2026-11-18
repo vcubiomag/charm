@@ -13,7 +13,6 @@ dependencies = [
     # wheel installable on its own, at the cost of PyPI refusing the upload.
     "brainnet @ git+https://github.com/simnibs/brainnet@v0.2",
     "brainsynth @ git+https://github.com/simnibs/brainsynth@v0.1",
-    "cat-surf>=1.1.8",
     "cortech @ https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp311-cp311-macosx_14_0_arm64.whl ; python_version == '3.11' and sys_platform == 'darwin' and platform_machine == 'arm64'",
     "cortech @ https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp311-cp311-manylinux_2_34_x86_64.whl ; python_version == '3.11' and sys_platform == 'linux' and platform_machine == 'x86_64'",
     "cortech @ https://github.com/srimanachanta/cortech/releases/download/v0.1.0/cortech-0.1-cp312-cp312-macosx_14_0_arm64.whl ; python_version == '3.12' and sys_platform == 'darwin' and platform_machine == 'arm64'",
