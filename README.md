@@ -13,7 +13,7 @@ These changes put together bring CHARM head-model generation time from ~2 hours 
 
 <hr/>
 
-Prebuilt wheels are attached under [releases]([url](https://github.com/vcubiomag/charm/releases)) for macOS (arm64) and Linux (x86_64).
+Prebuilt wheels are attached under [releases](https://github.com/vcubiomag/charm/releases) for macOS (arm64) and Linux (x86_64).
 
 <hr/>
 
