@@ -3,6 +3,7 @@ import cortech
 import nibabel as nib
 import numpy as np
 import pytest
+import torch
 from conftest import TESTDATA
 from scipy.spatial.transform import Rotation
 
@@ -52,3 +53,13 @@ def test_template_sphere_needs_the_topofit_mesh():
     white = cortech.Surface(surface.nodes.node_coord, surface.elm.node_number_list[:, :3] - 1)
     with pytest.raises(ValueError, match="TopoFit template mesh"):
         registration.template_sphere(white, "lh")
+
+
+def test_sphere_field_gradients_are_finite_at_grid_poles():
+    axes = np.concatenate([np.eye(3), -np.eye(3)])
+    field = registration._SphereField(axes, axes[:, :1], height=4)
+    points = torch.tensor(axes, dtype=torch.float32, requires_grad=True)
+
+    field(points).sum().backward()
+
+    assert torch.isfinite(points.grad).all()

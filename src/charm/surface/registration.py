@@ -215,8 +215,10 @@ class _SphereField:
         self.phi_max = np.pi + dphi
 
     def _sample(self, grid, x):
-        theta = torch.acos(torch.clamp(x[:, 2], -1, 1))
-        phi = torch.atan2(x[:, 1], x[:, 0])
+        # At a pole the grid's weight is zero, but its sampling gradients must still be finite.
+        radius = torch.linalg.vector_norm(x[:, :2], dim=1)
+        theta = torch.atan2(radius, x[:, 2])
+        phi = torch.atan2(x[:, 1], torch.where(radius == 0, 1.0, x[:, 0]))
         coords = torch.stack([phi / self.phi_max, 2 * theta / np.pi - 1], -1)[None, None]
         return torch.nn.functional.grid_sample(grid, coords, align_corners=True)[0, :, 0].T
 
